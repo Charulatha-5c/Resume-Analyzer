@@ -1,0 +1,41 @@
+# --- Secrets (NEVER commit these) ---
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+
+# --- Node ---
+node_modules/
+.pnpm-store/
+
+# --- Next.js ---
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# --- Logs ---
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# --- IDE / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# --- Claude Code workspace data ---
+.claude/
+
+# --- Misc ---
+*.pem
+.vercel
+.turbo
+coverage/
