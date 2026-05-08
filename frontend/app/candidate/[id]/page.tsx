@@ -20,6 +20,14 @@ import {
 import type { Candidate } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 
+function firstSentences(text: string, max: number): string {
+  if (!text) return "";
+  const trimmed = text.trim();
+  const matches = trimmed.match(/[^.!?]+[.!?]+(\s|$)/g);
+  if (!matches || matches.length <= max) return trimmed;
+  return matches.slice(0, max).join("").trim();
+}
+
 export default function CandidateDetailPage({
   params,
 }: {
@@ -168,8 +176,8 @@ export default function CandidateDetailPage({
                         {j.company ?? "Company"} · {j.start ?? "?"} — {j.end ?? "Present"}
                       </div>
                       {j.description && (
-                        <p className="text-slate-600 text-xs mt-1.5 line-clamp-2">
-                          {j.description}
+                        <p className="text-slate-600 text-xs mt-1.5 leading-relaxed">
+                          {firstSentences(j.description, 2)}
                         </p>
                       )}
                     </li>
@@ -230,8 +238,8 @@ export default function CandidateDetailPage({
                 <SectionTitle icon={<FileTextIcon size={18} />} color="purple">
                   Cover letter
                 </SectionTitle>
-                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line line-clamp-6">
-                  {candidate.cover_letter}
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                  {firstSentences(candidate.cover_letter, 3)}
                 </p>
               </section>
             )}
