@@ -8,6 +8,13 @@ const VIEW_ID = process.env.NOCODB_CANDIDATES_VIEW_ID!;
 
 if (!BASE_URL || !TOKEN || !BASE_ID || !TABLE_ID) {
   console.warn("[nocodb] Missing required env vars. Check .env.local.");
+  console.warn("[nocodb] DEBUG values:", {
+    BASE_URL: BASE_URL ? "SET (" + BASE_URL.slice(0, 20) + ")" : "MISSING",
+    TOKEN: TOKEN ? "SET (length=" + TOKEN.length + ")" : "MISSING",
+    BASE_ID: BASE_ID ? "SET" : "MISSING",
+    TABLE_ID: TABLE_ID ? "SET" : "MISSING",
+    VIEW_ID: VIEW_ID ? "SET" : "MISSING",
+  });
 }
 
 const headers = { "xc-token": TOKEN };
