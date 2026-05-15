@@ -13,7 +13,10 @@
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 200],
+      "position": [
+        240,
+        200
+      ],
       "webhookId": "process-candidate-webhook"
     },
     {
@@ -22,13 +25,19 @@
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [240, 400]
+      "position": [
+        240,
+        400
+      ]
     },
     {
       "parameters": {
         "rule": {
           "interval": [
-            { "field": "hours", "hoursInterval": 6 }
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
           ]
         }
       },
@@ -36,7 +45,10 @@
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [240, 600]
+      "position": [
+        240,
+        600
+      ]
     },
     {
       "parameters": {
@@ -46,7 +58,10 @@
       "name": "Determine Mode",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [460, 400]
+      "position": [
+        460,
+        400
+      ]
     },
     {
       "parameters": {
@@ -54,13 +69,19 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "limit", "value": "1000" }
+            {
+              "name": "limit",
+              "value": "1000"
+            }
           ]
         },
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "xc-token", "value": "={{ $env.NOCODB_TOKEN }}" }
+            {
+              "name": "xc-token",
+              "value": "={{ $env.NOCODB_TOKEN }}"
+            }
           ]
         },
         "options": {}
@@ -69,18 +90,24 @@
       "name": "List All JDs",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [680, 400],
+      "position": [
+        680,
+        400
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000
     },
     {
       "parameters": {
-        "url": "=https://answermagic.5cn.co.in/api/v1/db/data/noco/pg0zrubkir773po/m2lgq3rvtdn5n9m{{ $('Determine Mode').first().json.mode === 'single' ? ('/' + $('Determine Mode').first().json.candidate_id) : ('/views/vwh7pz0hm0pgxum3?limit=1000&where=' + encodeURIComponent('(CreatedAt,gte,exactDate,2026-05-07)~and((extracted resume,blank)~or((LLM score,blank)~or(LLM score,eq,0)))')) }}",
+        "url": "=https://answermagic.5cn.co.in/api/v1/db/data/noco/pg0zrubkir773po/m2lgq3rvtdn5n9m{{ $('Determine Mode').first().json.mode === 'single' ? ('/' + $('Determine Mode').first().json.candidate_id) : ('/views/vwh7pz0hm0pgxum3?limit=1000&where=' + encodeURIComponent('(CreatedAt,gte,exactDate,2025-11-01)~and((extracted resume,blank)~or((LLM score,blank)~or(LLM score,eq,0)))')) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "xc-token", "value": "={{ $env.NOCODB_TOKEN }}" }
+            {
+              "name": "xc-token",
+              "value": "={{ $env.NOCODB_TOKEN }}"
+            }
           ]
         },
         "options": {}
@@ -89,117 +116,40 @@
       "name": "Fetch Candidates",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [900, 400],
+      "position": [
+        900,
+        400
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000
     },
     {
       "parameters": {
-        "jsCode": "const mode = $('Determine Mode').first().json.mode;\nconst resp = $input.first().json;\nlet rows = [];\n\nif (mode === 'single') {\n  rows = [resp];\n} else {\n  rows = resp.list || [];\n}\n\nconst SINCE = '2026-05-07';\n\nconst hasText = (v) => v !== null && v !== undefined && String(v).trim().length > 0;\nconst hasNum = (v) => v !== null && v !== undefined && v !== '' && !Number.isNaN(Number(v));\n\nfunction isGarbage(s) {\n  const orig = (s || '').trim();\n  const t = orig.toLowerCase();\n  if (t.length === 0) return true;\n  if (t.length === 1) return true;\n  if (t.length === 2) {\n    return !/^[A-Z]{2}$/.test(orig);\n  }\n  if (t.length > 80) return true;\n  const noValues = new Set([\n    'n/a','na','none','nil','null','tbd','test','-','--','...',\n    '?','??','xx','xxx','abc','asdf','qwerty'\n  ]);\n  if (noValues.has(t)) return true;\n  if (!/[aeiou]/.test(t)) return true;\n  return false;\n}\n\nfunction detectLinkType(rawUrl) {\n  const url = (rawUrl || '').trim();\n  const u = url.toLowerCase();\n  if (!u) return { type: 'icloud', url, original: url, file_id: null, note: 'empty link' };\n\n  // Google Drive — rewrite to direct download URL with confirm=t to bypass virus-scan warning\n  const gdriveFileMatch = url.match(/drive\\.google\\.com\\/file\\/d\\/([a-zA-Z0-9_-]+)/);\n  if (gdriveFileMatch) {\n    return { type: 'pdf', url: 'https://drive.google.com/uc?export=download&confirm=t&id=' + gdriveFileMatch[1], original: url, file_id: null };\n  }\n  const gdriveIdMatch = url.match(/drive\\.google\\.com\\/(?:open|uc)\\?[^#]*[?&]id=([a-zA-Z0-9_-]+)/);\n  if (gdriveIdMatch) {\n    return { type: 'pdf', url: 'https://drive.google.com/uc?export=download&confirm=t&id=' + gdriveIdMatch[1], original: url, file_id: null };\n  }\n  if (/drive\\.google\\.com\\//.test(u)) {\n    return { type: 'pdf', url, original: url, file_id: null };\n  }\n\n  // Vercel Blob (public or private with presigned ?download=1)\n  if (/\\.public\\.blob\\.vercel-storage\\.com\\//.test(u) || /\\.private\\.blob\\.vercel-storage\\.com\\//.test(u)) {\n    return { type: 'pdf', url, original: url, file_id: null };\n  }\n\n  // LinkedIn\n  if (/(?:^|\\.|\\/)linkedin\\.com\\//.test(u)) {\n    return { type: 'linkedin', url, original: url, file_id: null };\n  }\n\n  // iCloud Drive (cannot scrape)\n  if (/icloud\\.com\\/iclouddrive/.test(u)) {\n    return { type: 'icloud', url, original: url, file_id: null };\n  }\n\n  // Anything ending in .pdf or with .pdf? in path → try as PDF\n  if (/\\.pdf(\\?|$)/.test(u)) {\n    return { type: 'pdf', url, original: url, file_id: null };\n  }\n\n  // Unknown: still try as PDF; if it's HTML the parser will fail gracefully\n  return { type: 'pdf', url, original: url, file_id: null };\n}\n\nconst keep = rows.filter(r => {\n  if (!hasText(r['cv drive link'])) return false;\n  if (mode !== 'single' && r.CreatedAt) {\n    const created = String(r.CreatedAt).slice(0, 10);\n    if (created < SINCE) return false;\n  }\n  if (isGarbage(r.position))   return false;\n  if (isGarbage(r.department)) return false;\n  if (mode !== 'single') {\n    const fullyDone = hasText(r['extracted resume']) && hasNum(r['LLM score']) && Number(r['LLM score']) > 0;\n    if (fullyDone) return false;\n  }\n  return true;\n});\n\nreturn keep.map(r => {\n  const link = detectLinkType(r['cv drive link']);\n  return {\n    json: {\n      candidate_id: String(r.Id ?? r.id),\n      name: ((r['first name'] || '') + ' ' + (r['last name'] || '')).trim(),\n      email: r.email || null,\n      phone: r['phone number'] || null,\n      department: r.department || null,\n      position: r.position || null,\n      cover_letter: r['cover letter'] || null,\n      cv_drive_link: link.url,\n      cv_drive_link_original: link.original,\n      link_type: link.type\n    }\n  };\n});"
+        "jsCode": "const mode = $('Determine Mode').first().json.mode;\nconst resp = $input.first().json;\nlet rows = [];\n\nif (mode === 'single') {\n  rows = [resp];\n} else {\n  rows = resp.list || [];\n}\n\nconst SINCE = '2025-11-01';\n\nconst hasText = (v) => v !== null && v !== undefined && String(v).trim().length > 0;\nconst hasNum = (v) => v !== null && v !== undefined && v !== '' && !Number.isNaN(Number(v));\n\nfunction isGarbage(s) {\n  const orig = (s || '').trim();\n  const t = orig.toLowerCase();\n  if (t.length === 0) return true;\n  if (t.length === 1) return true;\n  if (t.length === 2) {\n    return !/^[A-Z]{2}$/.test(orig);\n  }\n  if (t.length > 80) return true;\n  const noValues = new Set([\n    'n/a','na','none','nil','null','tbd','test','-','--','...',\n    '?','??','xx','xxx','abc','asdf','qwerty'\n  ]);\n  if (noValues.has(t)) return true;\n  if (!/[aeiou]/.test(t)) return true;\n  return false;\n}\n\nfunction detectLinkType(rawUrl) {\n  const url = (rawUrl || '').trim();\n  const u = url.toLowerCase();\n  if (!u) return { type: 'icloud', url, original: url, file_id: null, note: 'empty link' };\n\n  // Google Drive — rewrite to direct download URL with confirm=t to bypass virus-scan warning\n  const gdriveFileMatch = url.match(/drive\\.google\\.com\\/file\\/d\\/([a-zA-Z0-9_-]+)/);\n  if (gdriveFileMatch) {\n    return { type: 'pdf', url: 'https://drive.google.com/uc?export=download&confirm=t&id=' + gdriveFileMatch[1], original: url, file_id: null };\n  }\n  const gdriveIdMatch = url.match(/drive\\.google\\.com\\/(?:open|uc)\\?[^#]*[?&]id=([a-zA-Z0-9_-]+)/);\n  if (gdriveIdMatch) {\n    return { type: 'pdf', url: 'https://drive.google.com/uc?export=download&confirm=t&id=' + gdriveIdMatch[1], original: url, file_id: null };\n  }\n  if (/drive\\.google\\.com\\//.test(u)) {\n    return { type: 'pdf', url, original: url, file_id: null };\n  }\n\n  // Vercel Blob (public or private with presigned ?download=1)\n  if (/\\.public\\.blob\\.vercel-storage\\.com\\//.test(u) || /\\.private\\.blob\\.vercel-storage\\.com\\//.test(u)) {\n    return { type: 'pdf', url, original: url, file_id: null };\n  }\n\n  // LinkedIn\n  if (/(?:^|\\.|\\/)linkedin\\.com\\//.test(u)) {\n    return { type: 'linkedin', url, original: url, file_id: null };\n  }\n\n  // iCloud Drive (cannot scrape)\n  if (/icloud\\.com\\/iclouddrive/.test(u)) {\n    return { type: 'icloud', url, original: url, file_id: null };\n  }\n\n  // Anything ending in .pdf or with .pdf? in path → try as PDF\n  if (/\\.pdf(\\?|$)/.test(u)) {\n    return { type: 'pdf', url, original: url, file_id: null };\n  }\n\n  // Unknown: still try as PDF; if it's HTML the parser will fail gracefully\n  return { type: 'pdf', url, original: url, file_id: null };\n}\n\nconst keep = rows.filter(r => {\n  if (!hasText(r['cv drive link'])) return false;\n  if (mode !== 'single' && r.CreatedAt) {\n    const created = String(r.CreatedAt).slice(0, 10);\n    if (created < SINCE) return false;\n  }\n  if (isGarbage(r.position))   return false;\n  if (isGarbage(r.department)) return false;\n  if (mode !== 'single') {\n    const fullyDone = hasText(r['extracted resume']) && hasNum(r['LLM score']) && Number(r['LLM score']) > 0;\n    if (fullyDone) return false;\n  }\n  return true;\n});\n\nreturn keep.map(r => {\n  const link = detectLinkType(r['cv drive link']);\n  return {\n    json: {\n      candidate_id: String(r.Id ?? r.id),\n      name: ((r['first name'] || '') + ' ' + (r['last name'] || '')).trim(),\n      email: r.email || null,\n      phone: r['phone number'] || null,\n      department: r.department || null,\n      position: r.position || null,\n      cover_letter: r['cover letter'] || null,\n      cv_drive_link: link.url,\n      cv_drive_link_original: link.original,\n      link_type: link.type,\n      existing_extracted_resume: r['extracted resume'] || null\n    }\n  };\n});"
       },
       "id": "f1000000-0000-0000-0000-000000000006",
       "name": "Filter & Normalize",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1120, 400]
+      "position": [
+        1120,
+        400
+      ]
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const ROLE_SUFFIXES = new Set([\n  'engineer','developer','scientist','manager','specialist','analyst',\n  'lead','senior','junior','principal','staff','associate',\n  'intern','executive','admin','administrator','support',\n  'technician','technologist','tester','designer',\n  'owner','consultant','representative','rep','officer','assessor'\n]);\nconst STOP = new Set(['the','a','an','of','and','or','in','for','to','with']);\n\nfunction tokenize(s) {\n  return (s || '').toLowerCase()\n    .replace(/[^a-z0-9]+/g, ' ')\n    .trim().split(/\\s+/)\n    .filter(w => w.length >= 2)\n    .filter(w => !STOP.has(w));\n}\nfunction domainTokens(s) {\n  return new Set(tokenize(s).filter(w => !ROLE_SUFFIXES.has(w)));\n}\nfunction similarity(a, b) {\n  const da = domainTokens(a);\n  const db = domainTokens(b);\n  if (da.size === 0 || db.size === 0) {\n    const ta = new Set(tokenize(a));\n    const tb = new Set(tokenize(b));\n    if (ta.size === 0 || tb.size === 0) return 0;\n    const c = [...ta].filter(w => tb.has(w)).length;\n    return c / Math.max(ta.size, tb.size);\n  }\n  const c = [...da].filter(w => db.has(w)).length;\n  return c / Math.max(da.size, db.size);\n}\n\nconst candidate = $json;\nconst jdList = ($('List All JDs').first().json.list) || [];\nconst pos = (candidate.position || '').trim();\n\nconst exact = jdList.find(j => (j.Position || '').trim().toLowerCase() === pos.toLowerCase());\nif (exact) {\n  return { json: { ...candidate, jd_text: exact['Job Description'] || '', matched_position: exact.Position, match_source: 'exact', similarity: 1 } };\n}\n\nconst FUZZY_THRESHOLD = 0.5;\nconst scored = jdList.map(j => ({ jd: j, sim: similarity(pos, j.Position) })).sort((a, b) => b.sim - a.sim);\nconst best = scored[0];\nif (best && best.sim >= FUZZY_THRESHOLD) {\n  return { json: { ...candidate, jd_text: best.jd['Job Description'] || '', matched_position: best.jd.Position, match_source: 'fuzzy', similarity: best.sim } };\n}\n\nreturn { json: { ...candidate, jd_text: null, matched_position: null, match_source: 'none', similarity: 0 } };"
+        "jsCode": "const ROLE_SUFFIXES = new Set([\n  'engineer','developer','scientist','manager','specialist','analyst',\n  'lead','senior','junior','principal','staff','associate',\n  'intern','executive','admin','administrator','support',\n  'technician','technologist','tester','designer',\n  'owner','consultant','representative','rep','officer','assessor'\n]);\nconst STOP = new Set(['the','a','an','of','and','or','in','for','to','with']);\n\nfunction tokenize(s) {\n  return (s || '').toLowerCase()\n    .replace(/[^a-z0-9]+/g, ' ')\n    .trim().split(/\\s+/)\n    .filter(w => w.length >= 2)\n    .filter(w => !STOP.has(w));\n}\nfunction domainTokens(s) {\n  return new Set(tokenize(s).filter(w => !ROLE_SUFFIXES.has(w)));\n}\nfunction similarity(a, b) {\n  const da = domainTokens(a);\n  const db = domainTokens(b);\n  if (da.size === 0 || db.size === 0) {\n    const ta = new Set(tokenize(a));\n    const tb = new Set(tokenize(b));\n    if (ta.size === 0 || tb.size === 0) return 0;\n    const c = [...ta].filter(w => tb.has(w)).length;\n    return c / Math.max(ta.size, tb.size);\n  }\n  const c = [...da].filter(w => db.has(w)).length;\n  return c / Math.max(da.size, db.size);\n}\n\nconst candidate = $json;\nconst pos = (candidate.position || '').trim();\n\n// Combine careers page JDs (12) + NocoDB JDs (Applied Scientist + others)\nlet combined = [];\ntry {\n  const careers = ($('Fetch Careers JDs').first().json.list) || [];\n  combined = combined.concat(careers);\n} catch (e) {}\ntry {\n  const noco = ($('List All JDs').first().json.list) || [];\n  combined = combined.concat(noco.filter(j => (j.Position || '').trim().length > 0));\n} catch (e) {}\n\n// Try exact match first (case-insensitive)\nconst exact = combined.find(j => (j.Position || '').trim().toLowerCase() === pos.toLowerCase());\nif (exact) {\n  return { json: { ...candidate, jd_text: exact['Job Description'] || '', matched_position: exact.Position, match_source: 'exact', similarity: 1 } };\n}\n\n// Substring match — handles team/category prefixes/suffixes like 'Core Team - Senior Full Stack Engineer'\nconst normalize = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst posNorm = normalize(pos);\nif (posNorm.length >= 4) {\n  const substr = combined.find(j => {\n    const jdNorm = normalize(j.Position);\n    if (!jdNorm || jdNorm.length < 4) return false;\n    return jdNorm.includes(posNorm) || posNorm.includes(jdNorm);\n  });\n  if (substr) {\n    return { json: { ...candidate, jd_text: substr['Job Description'] || '', matched_position: substr.Position, match_source: 'substring', similarity: 0.9 } };\n  }\n}\n\n// Fuzzy match\nconst FUZZY_THRESHOLD = 0.5;\nconst scored = combined.map(j => ({ jd: j, sim: similarity(pos, j.Position) })).sort((a, b) => b.sim - a.sim);\nconst best = scored[0];\nif (best && best.sim >= FUZZY_THRESHOLD) {\n  return { json: { ...candidate, jd_text: best.jd['Job Description'] || '', matched_position: best.jd.Position, match_source: 'fuzzy', similarity: best.sim } };\n}\n\n// No match — set null so the downstream gate can skip scoring\nreturn { json: { ...candidate, jd_text: null, matched_position: null, match_source: 'none', similarity: 0 } };"
       },
       "id": "f1000000-0000-0000-0000-000000000007",
       "name": "Find Best JD Match",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1340, 400]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
-          "conditions": [
-            {
-              "id": "jd-found-cond",
-              "leftValue": "={{ ($json.jd_text || '').toString().trim().length > 0 }}",
-              "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "f1000000-0000-0000-0000-000000000008",
-      "name": "IF JD Found",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [1560, 400]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.openai.com/v1/chat/completions",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $env.OPENAI_API_KEY }}" },
-            { "name": "content-type", "value": "application/json" }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"gpt-4.1-mini\",\n  \"max_tokens\": 1500,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify('You are writing a Job Description for the role \"' + ($json.position || '') + '\" at 5C Network — a Bangalore-based teleradiology and medical-imaging AI company. They handle millions of radiology scans per year, run their own PACS/RIS infrastructure, integrate via DICOM/HL7. Engineering uses TypeScript, Python, PyTorch on AWS. Sales targets hospitals, diagnostic chains, and government health programs.\\n\\nGuess a sensible experience level from the role title (intern = 0 yrs; \"senior/principal\" in the title = 5-10 yrs; everything else = 1-5 yrs).\\n\\nWrite a complete plain-text Job Description with these sections in this order:\\n- About the role (2-3 sentences)\\n- Responsibilities (5-7 bullets, prefixed with \"- \")\\n- Requirements (5-7 bullets, prefixed with \"- \")\\n- Nice to have (3-4 bullets, prefixed with \"- \")\\n- Tech stack or domain knowledge expected (1 paragraph)\\n\\nCRITICAL: Output plain text only. No markdown headers (no #, no **). No code fences. Do NOT include any [AUTO-GENERATED] tag or meta-text. Begin directly with the About the role content.') }}\n    }\n  ]\n}",
-        "options": {}
-      },
-      "id": "f1000000-0000-0000-0000-000000000009",
-      "name": "GPT Generate JD",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1780, 560],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
-      "continueOnFail": true
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "const resp = $json;\nconst c = $('Find Best JD Match').item.json;\nconst raw = resp && resp.choices && resp.choices[0] && resp.choices[0].message && resp.choices[0].message.content;\nlet jdText;\nif (!raw) {\n  jdText = 'Position: ' + (c.position || 'unknown') + '. (Auto-generated JD failed; using minimal placeholder. Recruiter to review.) Generic responsibilities and 1-5 years of relevant experience expected.';\n} else {\n  jdText = String(raw).trim();\n  if (jdText.startsWith('[AUTO-GENERATED]')) jdText = jdText.slice('[AUTO-GENERATED]'.length).trim();\n  if (!jdText) jdText = 'Position: ' + (c.position || 'unknown') + '. Generic role at 5C Network.';\n}\nreturn { json: { ...c, jd_text: jdText, generated: true } };"
-      },
-      "id": "f1000000-0000-0000-0000-000000000010",
-      "name": "Parse Generated JD",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [2000, 560],
-      "continueOnFail": true
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://answermagic.5cn.co.in/api/v1/db/data/noco/pg0zrubkir773po/meqbnjh4qzk29i2",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "xc-token", "value": "={{ $env.NOCODB_TOKEN }}" },
-            { "name": "content-type", "value": "application/json" }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"Position\": {{ JSON.stringify($json.position) }},\n  \"Job Description\": {{ JSON.stringify($json.jd_text) }}\n}",
-        "options": {}
-      },
-      "id": "f1000000-0000-0000-0000-000000000011",
-      "name": "Insert New JD Row",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [2220, 560],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
-      "continueOnFail": true
+      "position": [
+        1340,
+        400
+      ]
     },
     {
       "parameters": {
@@ -207,8 +157,16 @@
         "dataType": "string",
         "rules": {
           "rules": [
-            { "operation": "equal", "value2": "linkedin", "output": 0 },
-            { "operation": "equal", "value2": "icloud", "output": 1 }
+            {
+              "operation": "equal",
+              "value2": "linkedin",
+              "output": 0
+            },
+            {
+              "operation": "equal",
+              "value2": "icloud",
+              "output": 1
+            }
           ]
         },
         "fallbackOutput": 2
@@ -217,7 +175,10 @@
       "name": "Route By Link Type",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [2400, 400]
+      "position": [
+        2400,
+        400
+      ]
     },
     {
       "parameters": {
@@ -225,19 +186,35 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "User-Agent", "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36" }
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+            }
           ]
         },
         "options": {
-          "response": { "response": { "responseFormat": "file", "outputPropertyName": "data" } },
-          "redirect": { "redirect": { "followRedirects": true, "maxRedirects": 5 } }
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "redirect": {
+            "redirect": {
+              "followRedirects": true,
+              "maxRedirects": 5
+            }
+          }
         }
       },
       "id": "f1000000-0000-0000-0000-000000000012",
       "name": "Fetch PDF Binary",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2660, 200],
+      "position": [
+        2660,
+        200
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000,
@@ -254,7 +231,10 @@
       "name": "Extract Text From PDF",
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
-      "position": [2880, 200],
+      "position": [
+        2880,
+        200
+      ],
       "continueOnFail": true,
       "alwaysOutputData": true
     },
@@ -264,21 +244,43 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "User-Agent", "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36" },
-            { "name": "Accept", "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" },
-            { "name": "Accept-Language", "value": "en-US,en;q=0.9" }
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            }
           ]
         },
         "options": {
-          "response": { "response": { "responseFormat": "text", "neverError": true } },
-          "redirect": { "redirect": { "followRedirects": true, "maxRedirects": 5 } }
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "neverError": true
+            }
+          },
+          "redirect": {
+            "redirect": {
+              "followRedirects": true,
+              "maxRedirects": 5
+            }
+          }
         }
       },
       "id": "f1000000-0000-0000-0000-000000000023",
       "name": "Fetch LinkedIn HTML",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2660, 400],
+      "position": [
+        2660,
+        400
+      ],
       "retryOnFail": true,
       "maxTries": 2,
       "waitBetweenTries": 3000,
@@ -293,7 +295,10 @@
       "name": "Strip LinkedIn HTML",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2880, 400],
+      "position": [
+        2880,
+        400
+      ],
       "continueOnFail": true
     },
     {
@@ -305,7 +310,10 @@
       "name": "Set iCloud Placeholder",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2660, 600]
+      "position": [
+        2660,
+        600
+      ]
     },
     {
       "parameters": {
@@ -316,7 +324,10 @@
       "name": "Prepare Resume Text",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3100, 400],
+      "position": [
+        3100,
+        400
+      ],
       "continueOnFail": true
     },
     {
@@ -326,8 +337,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $env.OPENAI_API_KEY }}" },
-            { "name": "content-type", "value": "application/json" }
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.OPENAI_API_KEY }}"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -339,7 +356,10 @@
       "name": "GPT Extract Resume",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3320, 400],
+      "position": [
+        3320,
+        400
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000,
@@ -354,7 +374,10 @@
       "name": "Parse Extraction",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3540, 400],
+      "position": [
+        3540,
+        400
+      ],
       "continueOnFail": true
     },
     {
@@ -364,8 +387,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "xc-token", "value": "={{ $env.NOCODB_TOKEN }}" },
-            { "name": "content-type", "value": "application/json" }
+            {
+              "name": "xc-token",
+              "value": "={{ $env.NOCODB_TOKEN }}"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -377,7 +406,10 @@
       "name": "Save Extracted Resume",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3760, 400],
+      "position": [
+        3760,
+        400
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000,
@@ -390,20 +422,29 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $env.OPENAI_API_KEY }}" },
-            { "name": "content-type", "value": "application/json" }
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.OPENAI_API_KEY }}"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"gpt-4.1-mini\",\n  \"max_tokens\": 600,\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": {{ JSON.stringify('You are a senior recruiter at 5C Network — a Bangalore-based teleradiology and AI medical-imaging company.\\n\\nYOU RECEIVE FOUR INPUTS: (a) the position the candidate applied for, (b) the official Job Description, (c) the candidate cover letter (may be empty), and (d) the parsed JSON resume (skills, total_experience_years, previous_jobs, education, summary).\\n\\nThe parsed resume may include `source_link_type` and `source_status` fields. If source_link_type is \"linkedin\" you may have only partial info (name, headline, fragmentary bio) — score on what is available and clearly note the limitation in the reason. If source_status is \"empty\" or summary indicates content was unavailable (iCloud, unreadable PDF, etc.), output score = 0 and reason explaining that the resume could not be evaluated.\\n\\nCOMPUTE ONE OVERALL FIT SCORE 0-100 BY APPLYING THESE EXPLICIT WEIGHTS INTERNALLY:\\n  • SKILLS match — 40% (MOST important). Compare required skills/tech-stack from JD against candidate.skills AND skills implied by previous_jobs descriptions. Reward exact matches; penalize missing must-haves.\\n  • EXPERIENCE match — 30% (VERY important). Compare candidate.total_experience_years and seniority of past roles against JD\\'s stated min years and seniority level (intern / mid / senior / principal).\\n  • PREVIOUS-ROLE match — 20%. Look at candidate.previous_jobs[].title and description: have they actually done similar work?\\n  • EDUCATION match — 10%. Does candidate.education align with JD\\'s preferred degree/field?\\n\\nCOVER LETTER HANDLING: If non-empty AND it shows specific motivation/fit (mentions the role, the company, relevant projects), give a SMALL bonus of up to +3 points to the final score. If empty or generic boilerplate, ignore.\\n\\nFINAL SCORE = round(0.40·skills + 0.30·experience + 0.20·role_match + 0.10·education) + cover_letter_bonus, clamped to [0, 100].\\n\\nOUTPUT EXACTLY ONE JSON OBJECT (no markdown, no commentary):\\n{\\n  \"score\": <integer 0-100>,\\n  \"reason\": \"FOUR sentences — one per weighted factor (Skills, Experience, Previous-role, Education), each explicitly stating the factor name and how the candidate scored on it, plus a final note about cover-letter bonus or about source limitations (LinkedIn-only / iCloud / unreadable) if applicable.\"\\n}') }}\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify('POSITION APPLIED FOR: ' + ($('Parse Extraction').item.json.position || '') + '\\n\\n---\\n\\nJOB DESCRIPTION:\\n\\n' + ($('Parse Extraction').item.json.jd_text || '') + '\\n\\n---\\n\\nCOVER LETTER:\\n' + (($('Parse Extraction').item.json.cover_letter || '').trim() || '(none provided)') + '\\n\\n---\\n\\nCANDIDATE RESUME (parsed JSON):\\n\\n' + ($('Parse Extraction').item.json.extracted_resume_str || '')) }}\n    }\n  ]\n}",
+        "jsonBody": "={\n  \"model\": \"gpt-4.1-mini\",\n  \"max_tokens\": 800,\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": {{ JSON.stringify(\"You are a Hiring Manager at 5C Network — a Bangalore-based teleradiology and AI medical-imaging company.\\n\\nYOUR PERSONA (pick based on the position the candidate applied for):\\n- Applied Scientist / Data Scientist / ML / Computer Vision / Research → \\\"AI/ML Hiring Manager\\\"\\n- Software Engineer / Frontend / Backend / DevOps / SRE / Tech Lead → \\\"Engineering Hiring Manager\\\"\\n- Sales / BD / Account Manager / Sales Manager → \\\"Sales Hiring Manager\\\"\\n- Radiology Technician / CT Tech / QC / Reporting Analyst / Operations → \\\"Hiring Manager\\\"\\n- Any other role → \\\"Hiring Manager\\\"\\n\\nYOU RECEIVE FOUR INPUTS:\\n(a) the position the candidate applied for\\n(b) the official Job Description\\n(c) the candidate cover letter (may be empty)\\n(d) the parsed JSON resume (skills, total_experience_years, previous_jobs, education, certifications, projects, summary)\\n\\nROLE TIER CLASSIFICATION (examples — use judgment for unlisted roles):\\n- HIGH-TIER: Principal / Senior / Lead / Manager / Director / Architect / Tech Lead / Head of ... → significant ownership, leadership, or deep specialised expertise.\\n- MID-TIER: Applied Scientist / Data Scientist / ML Engineer / Computer Vision Engineer / Engineer (mid-level) / Software Engineer / Specialist / Senior Analyst → individual contributors with technical depth.\\n- JUNIOR / OPERATIONS: Intern / Junior / Trainee / Sales / Account Manager / CT Technician / QC / Reporting Analyst / Admin / Support → entry-level, operational, or sales/support.\\n\\nCOMPANY TYPE CLASSIFICATION (factor #1):\\nA. PRODUCT-BASED — strongly preferred for HIGH-TIER and MID-TIER. MNC or startup doesn't matter.\\n   Examples: Google, Microsoft, Amazon, Meta, OpenAI, Anthropic, Razorpay, Flipkart, Zomato, PhonePe, Postman, CRED, Stripe, Figma.\\nB. HEALTHCARE / MEDICAL — strongly preferred for JUNIOR/OPERATIONS, secondary for HIGH-TIER.\\n   Examples: Philips Healthcare, GE Healthcare, Practo, Tata 1mg, Apollo Hospitals, Qure.ai, SigTuple, Niramai.\\nC. SERVICE-BASED — neutral / slight negative for technical HIGH-TIER/MID-TIER, neutral for JUNIOR/OPS.\\n   Examples: TCS, Infosys, Wipro, Cognizant, Accenture, Capgemini.\\nD. OTHER — relevant only if the role specifically requires that domain expertise.\\n\\nCOLLEGE TIER CLASSIFICATION (factor #2):\\n- TIER 1: Elite tech + management + medical. Examples: IITs, IISc, BITS Pilani, top IIMs (A/B/C/L/K), AIIMS, CMC Vellore, MIT, Stanford, Cambridge, Oxford.\\n- TIER 2: Strong but not elite. Examples: Other NITs, IIITs (Hyderabad/Delhi/Bangalore), DTU, NSUT, VIT, COEP, regional IIMs, Manipal, BIT Mesra.\\n- TIER 3: General. Examples: SRM, KIIT, Amity, LPU, general state universities.\\n\\nEVALUATION CRITERIA (6 factors, weighted):\\n\\n1. PREVIOUS COMPANY — 20%\\n   HIGH-TIER role: PRODUCT-BASED first; HEALTHCARE secondary.\\n   MID-TIER role: PRODUCT-BASED preferred; HEALTHCARE and SERVICE acceptable.\\n   JUNIOR / OPERATIONS: HEALTHCARE alignment matters most.\\n   Score 90-100 for strong match; 50-70 for partial; 20-40 if mostly service-based for a technical role; 0-20 if no relevant prior co.\\n\\n2. COLLEGE TIER — 20%\\n   HIGH-TIER: T1 (90+), T2 (70-80), T3 (40-60).\\n   MID-TIER: T1 (90+), T2 (80+), T3 (60-70).\\n   JUNIOR / OPERATIONS: T1 (95+), T2 (85+), T3 (75+) — don't significantly penalise.\\n\\n3. YEARS OF EXPERIENCE — 20%\\n   Read the JD carefully — it states the expected experience for THIS role.\\n   Compare candidate.total_experience_years against what the JD asks.\\n   Best score when years comfortably match/exceed JD minimum; reduce when significantly under or over.\\n\\n4. SKILLS ALIGNMENT — 20%\\n   Focus ONLY on the TOP 5-8 MUST-HAVE skills from the JD — not every keyword.\\n   Match candidate.skills + skills implied by previous_jobs descriptions.\\n   Reward exact matches; penalise missing must-haves. Don't reward unrelated skills.\\n\\n5. PREVIOUS JOB ROLE ALIGNMENT — 15%\\n   Read candidate.previous_jobs[].title and description.\\n   Have they actually done similar work to what this JD asks?\\n\\n6. CERTIFICATIONS & PROJECTS — 5%\\n   candidate.certifications and side projects.\\n   Reward relevant certs by role family (Cloud: AWS/GCP/Azure/K8s; AI/ML: DeepLearning.AI specs, Kaggle, CVPR/NeurIPS papers; Medical imaging: DICOM, HL7, FDA 510(k), ARRT, RSNA; Finance: CFA, FRM, Six Sigma; Sales: HubSpot, Salesforce).\\n   Reward personal projects / papers / open-source work related to JD. Ignore unrelated.\\n\\nCOVER LETTER (silent bonus — DO NOT mention in reason):\\nIf cover letter is non-empty AND shows specific motivation/fit, add a small bonus of up to +3 points. Otherwise ignore. DO NOT reference the cover letter in the output reason text.\\n\\nLIMITATION HANDLING:\\nIf source_link_type = \\\"linkedin\\\" → partial info; score what's available and note the limitation in the reason.\\nIf source_status = \\\"empty\\\" or summary says content was unavailable → score = 0 and reason explaining the resume couldn't be evaluated.\\n\\nFINAL SCORE = round(0.20·company + 0.20·college + 0.20·experience + 0.20·skills + 0.15·previous_role + 0.05·certs_projects) + cover_letter_bonus, clamped to [0, 100].\\n\\nOUTPUT FORMAT (strictly JSON, no markdown, no commentary):\\n{\\n  \\\"score\\\": <integer 0-100>,\\n  \\\"reason\\\": \\\"Six sentences written as a hiring manager's evaluation note. Total length MUST stay under 150 words. One sentence per weighted factor in this exact order: (1) Previous company, (2) College tier, (3) Experience, (4) Skills, (5) Previous role, (6) Certifications & projects.\\\\n\\\\nSTYLE RULES:\\\\n- Each sentence MUST start with an action verb (Brings, Holds, Shows, Demonstrates, Comes from, Carries, Combines, Pairs, Backs up, etc.).\\\\n- Reference SPECIFIC evidence from the resume: actual company names (e.g. 'Razorpay'), college names (e.g. 'SRM University'), skill names, years, previous job titles. NEVER write generic phrases like 'previous company score is low' or 'experience is significantly below'.\\\\n- Frame constructively: prefer 'demonstrates strong X with room to grow on Y' over 'lacks Y'. State gaps as scope-stretch or alignment opportunities.\\\\n- Tone: balanced, professional, sounds like a recruiter's note to a hiring partner — not a checklist.\\\\n- Keep total length under 150 words. Brevity over completeness.\\\\n- DO NOT mention the cover letter.\\\\n\\\\nEnd with a brief note on source limitations ONLY if applicable (LinkedIn-only / iCloud / unreadable PDF).\\\"\\n}\") }}\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify('POSITION APPLIED FOR: ' + ($('Has JD Match?').item.json.position || '') + '\\n\\n---\\n\\nJOB DESCRIPTION:\\n\\n' + ($('Has JD Match?').item.json.jd_text || '') + '\\n\\n---\\n\\nCOVER LETTER:\\n' + (($('Has JD Match?').item.json.cover_letter || '').trim() || '(none provided)') + '\\n\\n---\\n\\nCANDIDATE RESUME (parsed JSON):\\n\\n' + ($('Has JD Match?').item.json.extracted_resume_str || '')) }}\n    }\n  ]\n}",
         "options": {}
       },
       "id": "f1000000-0000-0000-0000-000000000018",
       "name": "GPT Score",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3980, 400],
+      "position": [
+        3980,
+        400
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000,
@@ -412,13 +453,16 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// ROBUST: never throw — default to score=0 with diagnostic reason on failure\nconst resp = $json;\nconst c = $('Parse Extraction').item.json;\nconst raw = resp && resp.choices && resp.choices[0] && resp.choices[0].message && resp.choices[0].message.content;\nlet score = 0;\nlet reason = 'Scoring failed: no content from GPT Score.';\n\nif (raw) {\n  let text = String(raw).trim();\n  const fence = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  if (fence) text = fence[1].trim();\n  try {\n    const parsed = JSON.parse(text);\n    score = Math.max(0, Math.min(100, Math.round(Number(parsed.score) || 0)));\n    reason = String(parsed.reason || '').trim() || 'No reason provided by scorer.';\n  } catch (e) {\n    score = 0;\n    reason = 'Scoring failed: GPT returned non-JSON. Excerpt: ' + text.slice(0, 300);\n  }\n}\n\nreturn { json: { candidate_id: c.candidate_id, LLM_score: score, reason } };"
+        "jsCode": "// ROBUST: never throw — default to score=0 with diagnostic reason on failure\nconst resp = $json;\nconst c = $('Has JD Match?').item.json;\nconst raw = resp && resp.choices && resp.choices[0] && resp.choices[0].message && resp.choices[0].message.content;\nlet score = 0;\nlet reason = 'Scoring failed: no content from GPT Score.';\n\nif (raw) {\n  let text = String(raw).trim();\n  const fence = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  if (fence) text = fence[1].trim();\n  try {\n    const parsed = JSON.parse(text);\n    score = Math.max(0, Math.min(100, Math.round(Number(parsed.score) || 0)));\n    reason = String(parsed.reason || '').trim() || 'No reason provided by scorer.';\n  } catch (e) {\n    score = 0;\n    reason = 'Scoring failed: GPT returned non-JSON. Excerpt: ' + text.slice(0, 300);\n  }\n}\n\nreturn { json: { candidate_id: c.candidate_id, LLM_score: score, reason } };"
       },
       "id": "f1000000-0000-0000-0000-000000000019",
       "name": "Parse Score",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [4200, 400],
+      "position": [
+        4200,
+        400
+      ],
       "continueOnFail": true
     },
     {
@@ -428,8 +472,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "xc-token", "value": "={{ $env.NOCODB_TOKEN }}" },
-            { "name": "content-type", "value": "application/json" }
+            {
+              "name": "xc-token",
+              "value": "={{ $env.NOCODB_TOKEN }}"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -441,7 +491,10 @@
       "name": "Update Candidate With Score",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [4420, 400],
+      "position": [
+        4420,
+        400
+      ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000,
@@ -456,100 +509,453 @@
       "name": "Loop Over Items",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [1230, 400]
+      "position": [
+        1230,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Scrape 5C Network careers page using n8n http helper (works on all Node versions).\nconst ua = 'Mozilla/5.0';\nconst helpers = this.helpers;\n\nasync function fetchHtml(url) {\n  try {\n    return await helpers.httpRequest({\n      method: 'GET',\n      url: url,\n      headers: { 'User-Agent': ua }\n    });\n  } catch (e) {\n    return '';\n  }\n}\n\nconst careersHtml = await fetchHtml('https://www.5cnetwork.com/careers');\nif (!careersHtml) return [{ json: { list: [] } }];\n\nconst ldRe = /<script[^>]*type=[\"']application\\/ld\\+json[\"'][^>]*>([\\s\\S]*?)<\\/script>/gi;\nconst ldMatches = careersHtml.match(ldRe) || [];\nlet jobUrls = [];\nfor (const m of ldMatches) {\n  const jsonStr = m.replace(/<script[^>]*>|<\\/script>/g, '');\n  try {\n    const parsed = JSON.parse(jsonStr);\n    if (parsed['@type'] === 'ItemList' && Array.isArray(parsed.itemListElement) && parsed.itemListElement.length > 0) {\n      jobUrls = parsed.itemListElement.map(it => (it.item || it).url).filter(Boolean);\n      break;\n    }\n  } catch (e) {}\n}\n\nconst jobs = await Promise.all(jobUrls.map(async (url) => {\n  const html = await fetchHtml(url);\n  if (!html) return null;\n  const matches = html.match(/<script[^>]*type=[\"']application\\/ld\\+json[\"'][^>]*>([\\s\\S]*?)<\\/script>/gi) || [];\n  for (const m of matches) {\n    const jsonStr = m.replace(/<script[^>]*>|<\\/script>/g, '');\n    try {\n      const parsed = JSON.parse(jsonStr);\n      if (parsed['@type'] === 'JobPosting') {\n        const desc = String(parsed.description || '')\n          .replace(/<[^>]+>/g, ' ')\n          .replace(/&nbsp;/g, ' ')\n          .replace(/&amp;/g, '&')\n          .replace(/&quot;/g, '\"')\n          .replace(/&#39;/g, \"'\")\n          .replace(/\\s+/g, ' ')\n          .trim();\n        return { Position: parsed.title || '', 'Job Description': desc };\n      }\n    } catch (e) {}\n  }\n  return null;\n}));\n\nreturn [{ json: { list: jobs.filter(Boolean) } }];"
+      },
+      "id": "f1000000-0000-0000-0000-000000000030",
+      "name": "Fetch Careers JDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        400
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "has-jd-match-cond",
+              "leftValue": "={{ ($('Find Best JD Match').item.json.matched_position || '').toString().trim().length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f1000000-0000-0000-0000-000000000031",
+      "name": "Has JD Match?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3870,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "already-extracted-cond",
+              "leftValue": "={{ ($('Find Best JD Match').item.json.existing_extracted_resume || '').toString().trim().length > 10 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f1000000-0000-0000-0000-000000000032",
+      "name": "Already Extracted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2180,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Use the resume already saved on the candidate row — skip PDF fetch + GPT extraction.\nconst c = $('Find Best JD Match').item.json;\nlet parsed;\ntry {\n  parsed = JSON.parse(c.existing_extracted_resume);\n  if (!parsed || typeof parsed !== 'object') {\n    parsed = { error: 'invalid_existing', summary: 'Existing extracted resume parsed but not an object.' };\n  }\n} catch (e) {\n  parsed = { error: 'parse_failed', summary: 'Could not parse existing extracted resume JSON.' };\n}\nreturn { json: {\n  candidate_id: c.candidate_id,\n  position: c.position,\n  cover_letter: c.cover_letter || '',\n  jd_text: c.jd_text || '',\n  extracted_resume_obj: parsed,\n  extracted_resume_str: JSON.stringify(parsed, null, 2),\n  extraction_error: null,\n  used_existing: true\n}};"
+      },
+      "id": "f1000000-0000-0000-0000-000000000033",
+      "name": "Use Existing Extraction",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Save Extracted Resume returns NocoDB's PATCH response.\n// We want Parse Extraction's data to keep flowing downstream so GPT Score has it.\nreturn $('Parse Extraction').item;"
+      },
+      "id": "f1000000-0000-0000-0000-000000000034",
+      "name": "Carry Extraction Forward",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3760,
+        560
+      ]
     }
   ],
   "connections": {
     "Webhook": {
-      "main": [[{ "node": "Determine Mode", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Determine Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Manual Trigger": {
-      "main": [[{ "node": "Determine Mode", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Determine Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Schedule Trigger": {
-      "main": [[{ "node": "Determine Mode", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Determine Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Determine Mode": {
-      "main": [[{ "node": "List All JDs", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "List All JDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "List All JDs": {
-      "main": [[{ "node": "Fetch Candidates", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Fetch Careers JDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Fetch Candidates": {
-      "main": [[{ "node": "Filter & Normalize", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Filter & Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Filter & Normalize": {
-      "main": [[{ "node": "Loop Over Items", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Loop Over Items": {
       "main": [
         [],
-        [{ "node": "Find Best JD Match", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Find Best JD Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Find Best JD Match": {
-      "main": [[{ "node": "IF JD Found", "type": "main", "index": 0 }]]
-    },
-    "IF JD Found": {
       "main": [
-        [{ "node": "Route By Link Type", "type": "main", "index": 0 }],
-        [{ "node": "GPT Generate JD", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Already Extracted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
-    },
-    "GPT Generate JD": {
-      "main": [[{ "node": "Parse Generated JD", "type": "main", "index": 0 }]]
-    },
-    "Parse Generated JD": {
-      "main": [[{ "node": "Insert New JD Row", "type": "main", "index": 0 }]]
-    },
-    "Insert New JD Row": {
-      "main": [[{ "node": "Route By Link Type", "type": "main", "index": 0 }]]
     },
     "Route By Link Type": {
       "main": [
-        [{ "node": "Fetch LinkedIn HTML", "type": "main", "index": 0 }],
-        [{ "node": "Set iCloud Placeholder", "type": "main", "index": 0 }],
-        [{ "node": "Fetch PDF Binary", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Fetch LinkedIn HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set iCloud Placeholder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch PDF Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Fetch PDF Binary": {
-      "main": [[{ "node": "Extract Text From PDF", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Extract Text From PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Extract Text From PDF": {
-      "main": [[{ "node": "Prepare Resume Text", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Prepare Resume Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Fetch LinkedIn HTML": {
-      "main": [[{ "node": "Strip LinkedIn HTML", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Strip LinkedIn HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Strip LinkedIn HTML": {
-      "main": [[{ "node": "Prepare Resume Text", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Prepare Resume Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Set iCloud Placeholder": {
-      "main": [[{ "node": "Prepare Resume Text", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Prepare Resume Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Prepare Resume Text": {
-      "main": [[{ "node": "GPT Extract Resume", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "GPT Extract Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "GPT Extract Resume": {
-      "main": [[{ "node": "Parse Extraction", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Parse Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Parse Extraction": {
-      "main": [[{ "node": "Save Extracted Resume", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Save Extracted Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Save Extracted Resume": {
-      "main": [[{ "node": "GPT Score", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Carry Extraction Forward",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "GPT Score": {
-      "main": [[{ "node": "Parse Score", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Parse Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Parse Score": {
-      "main": [[{ "node": "Update Candidate With Score", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Update Candidate With Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Update Candidate With Score": {
-      "main": [[{ "node": "Loop Over Items", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Careers JDs": {
+      "main": [
+        [
+          {
+            "node": "Fetch Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has JD Match?": {
+      "main": [
+        [
+          {
+            "node": "GPT Score",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already Extracted?": {
+      "main": [
+        [
+          {
+            "node": "Use Existing Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route By Link Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Existing Extraction": {
+      "main": [
+        [
+          {
+            "node": "Has JD Match?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carry Extraction Forward": {
+      "main": [
+        [
+          {
+            "node": "Has JD Match?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "active": false,
   "tags": []
 }
