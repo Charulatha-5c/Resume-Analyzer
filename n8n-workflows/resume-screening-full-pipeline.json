@@ -541,7 +541,7 @@
           "conditions": [
             {
               "id": "has-jd-match-cond",
-              "leftValue": "={{ ($('Find Best JD Match').item.json.matched_position || '').toString().trim().length > 0 }}",
+              "leftValue": "={{ ($json.jd_text || '').toString().trim().length > 0 }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -599,7 +599,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Use the resume already saved on the candidate row — skip PDF fetch + GPT extraction.\nconst c = $('Find Best JD Match').item.json;\nlet parsed;\ntry {\n  parsed = JSON.parse(c.existing_extracted_resume);\n  if (!parsed || typeof parsed !== 'object') {\n    parsed = { error: 'invalid_existing', summary: 'Existing extracted resume parsed but not an object.' };\n  }\n} catch (e) {\n  parsed = { error: 'parse_failed', summary: 'Could not parse existing extracted resume JSON.' };\n}\nreturn { json: {\n  candidate_id: c.candidate_id,\n  position: c.position,\n  cover_letter: c.cover_letter || '',\n  jd_text: c.jd_text || '',\n  extracted_resume_obj: parsed,\n  extracted_resume_str: JSON.stringify(parsed, null, 2),\n  extraction_error: null,\n  used_existing: true\n}};"
+        "jsCode": "// Use existing extracted resume — skip PDF/GPT extraction.\n// Read from $json so we get the upstream candidate data (whether it came via FALSE-branch\n// of IF No JD Match or via the generate path through Restore Candidate Data).\nconst c = $json;\nlet parsed;\ntry {\n  parsed = JSON.parse(c.existing_extracted_resume);\n  if (!parsed || typeof parsed !== 'object') {\n    parsed = { error: 'invalid_existing', summary: 'Existing extracted resume parsed but not an object.' };\n  }\n} catch (e) {\n  parsed = { error: 'parse_failed', summary: 'Could not parse existing extracted resume JSON.' };\n}\nreturn { json: {\n  candidate_id: c.candidate_id,\n  position: c.position,\n  cover_letter: c.cover_letter || '',\n  jd_text: c.jd_text || '',\n  matched_position: c.matched_position || '',\n  match_source: c.match_source || '',\n  extracted_resume_obj: parsed,\n  extracted_resume_str: JSON.stringify(parsed, null, 2),\n  extraction_error: null,\n  used_existing: true\n}};"
       },
       "id": "f1000000-0000-0000-0000-000000000033",
       "name": "Use Existing Extraction",
@@ -622,6 +622,187 @@
       "position": [
         3760,
         560
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Dedup careers JDs vs existing NocoDB list. Emit one item per NEW JD.\nconst careers = (($input.first() && $input.first().json && $input.first().json.list) || []);\nconst existing = (($('List All JDs').first() && $('List All JDs').first().json && $('List All JDs').first().json.list) || []);\nconst have = new Set(existing.map(j => (j.Position || '').trim().toLowerCase()).filter(Boolean));\nconst newOnes = careers.filter(jd => {\n  const title = (jd.Position || '').trim();\n  return title && !have.has(title.toLowerCase());\n});\nreturn newOnes.map(jd => ({\n  json: {\n    Position: (jd.Position || '').trim(),\n    'Job Description': jd['Job Description'] || ''\n  }\n}));"
+      },
+      "id": "f1000000-0000-0000-0000-000000000060",
+      "name": "Compute New Careers JDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1020,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://answermagic.5cn.co.in/api/v1/db/data/noco/pg0zrubkir773po/meqbnjh4qzk29i2",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xc-token",
+              "value": "={{ $env.NOCODB_TOKEN }}"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"Position\": {{ JSON.stringify($json.Position) }},\n  \"Job Description\": {{ JSON.stringify($json[\"Job Description\"]) }}\n}",
+        "options": {}
+      },
+      "id": "f1000000-0000-0000-0000-000000000061",
+      "name": "Insert Careers Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1240,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "no-jd-match",
+              "leftValue": "={{ ($('Find Best JD Match').item.json.matched_position || '').toString().trim().length === 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f1000000-0000-0000-0000-000000000041",
+      "name": "IF No JD Match",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.OPENAI_API_KEY }}"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4.1-mini\",\n  \"max_tokens\": 1500,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify('You are writing a Job Description for the role \\\"' + ($('Find Best JD Match').item.json.position || '') + '\\\" at 5C Network — a Bangalore-based teleradiology and medical-imaging AI company. They handle millions of radiology scans per year, run their own PACS/RIS infrastructure, integrate via DICOM/HL7. Engineering uses TypeScript, Python, PyTorch on AWS. Sales targets hospitals, diagnostic chains, and government health programs.\\\\n\\\\nGuess a sensible experience level from the role title (intern = 0 yrs; \\\"senior/principal\\\" in the title = 5-10 yrs; everything else = 1-5 yrs).\\\\n\\\\nWrite a complete plain-text Job Description with these sections in this order:\\\\n- About the role (2-3 sentences)\\\\n- Responsibilities (5-7 bullets, prefixed with \\\"- \\\")\\\\n- Requirements (5-7 bullets, prefixed with \\\"- \\\")\\\\n- Nice to have (3-4 bullets, prefixed with \\\"- \\\")\\\\n- Tech stack or domain knowledge expected (1 paragraph)\\\\n\\\\nCRITICAL: Output plain text only. No markdown headers (no #, no **). No code fences. Do NOT include any [AUTO-GENERATED] tag or meta-text. Begin directly with the About the role content.') }}\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "f1000000-0000-0000-0000-000000000042",
+      "name": "GPT Generate JD",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        250
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const resp = $json;\nconst c = $('Find Best JD Match').item.json;\nconst raw = resp && resp.choices && resp.choices[0] && resp.choices[0].message && resp.choices[0].message.content;\nlet jdText;\nif (!raw) {\n  jdText = 'Position: ' + (c.position || 'unknown') + '. (Auto-generated JD failed; placeholder. Recruiter to review.) Generic responsibilities and 1-5 years of relevant experience expected.';\n} else {\n  jdText = String(raw).trim();\n  if (jdText.startsWith('[AUTO-GENERATED]')) jdText = jdText.slice('[AUTO-GENERATED]'.length).trim();\n  if (!jdText) jdText = 'Position: ' + (c.position || 'unknown') + '. Generic role at 5C Network.';\n}\nreturn { json: { ...c, jd_text: jdText, matched_position: c.position, match_source: 'generated' } };"
+      },
+      "id": "f1000000-0000-0000-0000-000000000043",
+      "name": "Parse Generated JD",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        250
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://answermagic.5cn.co.in/api/v1/db/data/noco/pg0zrubkir773po/meqbnjh4qzk29i2",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xc-token",
+              "value": "={{ $env.NOCODB_TOKEN }}"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"Position\": {{ JSON.stringify($json.position) }},\n  \"Job Description\": {{ JSON.stringify($json.jd_text) }}\n}",
+        "options": {}
+      },
+      "id": "f1000000-0000-0000-0000-000000000044",
+      "name": "Insert New JD Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2220,
+        250
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return $('Parse Generated JD').item;"
+      },
+      "id": "f1000000-0000-0000-0000-000000000045",
+      "name": "Restore Candidate Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2440,
+        250
       ]
     }
   ],
@@ -719,7 +900,7 @@
       "main": [
         [
           {
-            "node": "Already Extracted?",
+            "node": "IF No JD Match",
             "type": "main",
             "index": 0
           }
@@ -887,6 +1068,11 @@
       "main": [
         [
           {
+            "node": "Compute New Careers JDs",
+            "type": "main",
+            "index": 0
+          },
+          {
             "node": "Fetch Candidates",
             "type": "main",
             "index": 0
@@ -946,6 +1132,79 @@
         [
           {
             "node": "Has JD Match?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute New Careers JDs": {
+      "main": [
+        [
+          {
+            "node": "Insert Careers Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF No JD Match": {
+      "main": [
+        [
+          {
+            "node": "GPT Generate JD",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Already Extracted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT Generate JD": {
+      "main": [
+        [
+          {
+            "node": "Parse Generated JD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Generated JD": {
+      "main": [
+        [
+          {
+            "node": "Insert New JD Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert New JD Row": {
+      "main": [
+        [
+          {
+            "node": "Restore Candidate Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Candidate Data": {
+      "main": [
+        [
+          {
+            "node": "Already Extracted?",
             "type": "main",
             "index": 0
           }

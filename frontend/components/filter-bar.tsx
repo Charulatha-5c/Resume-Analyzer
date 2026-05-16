@@ -4,15 +4,12 @@ import { SearchIcon } from "./icons";
 
 type Props = {
   positions: string[];
-  departments: string[];
   position: string;
-  department: string;
   dateFrom: string;
   dateTo: string;
   search: string;
   onChange: (patch: Partial<{
     position: string;
-    department: string;
     dateFrom: string;
     dateTo: string;
     search: string;
@@ -24,7 +21,7 @@ type Props = {
 export function FilterBar(props: Props) {
   return (
     <div className="card-accent p-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">
             Position
@@ -37,21 +34,6 @@ export function FilterBar(props: Props) {
             <option value="">All positions</option>
             {props.positions.map((p) => (
               <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">
-            Department
-          </label>
-          <select
-            className="input"
-            value={props.department}
-            onChange={(e) => props.onChange({ department: e.target.value })}
-          >
-            <option value="">All departments</option>
-            {props.departments.map((d) => (
-              <option key={d} value={d}>{d}</option>
             ))}
           </select>
         </div>

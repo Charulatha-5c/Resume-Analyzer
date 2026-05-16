@@ -393,6 +393,131 @@
         1230,
         400
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "text-empty",
+              "leftValue": "={{ ($json.text || '').toString().trim().length < 100 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f1000000-0000-0000-0000-000000000070",
+      "name": "IF Text Empty?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3000,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/files",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.OPENAI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "purpose",
+              "value": "user_data"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f1000000-0000-0000-0000-000000000071",
+      "name": "Upload PDF to OpenAI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3220,
+        50
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.OPENAI_API_KEY }}"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4.1-mini\",\n  \"max_tokens\": 3000,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": [\n        { \"type\": \"text\", \"text\": \"Extract ALL text content from this resume PDF. Output plain text only, preserving structure (name, contact info, education, experience, skills, certifications, projects, summary, etc). Do NOT summarize or restructure — output the raw resume text as accurately as possible. If the document is not a resume or is unreadable, output: [UNREADABLE].\" },\n        { \"type\": \"file\", \"file\": { \"file_id\": \"{{ $json.id }}\" } }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "f1000000-0000-0000-0000-000000000072",
+      "name": "GPT Vision Extract",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3440,
+        50
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const resp = $json;\nconst raw = resp && resp.choices && resp.choices[0] && resp.choices[0].message && resp.choices[0].message.content;\nconst text = String(raw || '').trim();\nif (!text || text === '[UNREADABLE]') {\n  return { json: { text: '[NO RESUME TEXT — Vision OCR could not read the PDF (likely highly stylized or corrupt). Source: image-based PDF.]' } };\n}\nreturn { json: { text } };"
+      },
+      "id": "f1000000-0000-0000-0000-000000000073",
+      "name": "Parse Vision Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3660,
+        50
+      ]
     }
   ],
   "connections": {
@@ -525,7 +650,7 @@
       "main": [
         [
           {
-            "node": "Prepare Resume Text",
+            "node": "IF Text Empty?",
             "type": "main",
             "index": 0
           }
@@ -603,6 +728,57 @@
         [
           {
             "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Text Empty?": {
+      "main": [
+        [
+          {
+            "node": "Upload PDF to OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Resume Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload PDF to OpenAI": {
+      "main": [
+        [
+          {
+            "node": "GPT Vision Extract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT Vision Extract": {
+      "main": [
+        [
+          {
+            "node": "Parse Vision Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Vision Response": {
+      "main": [
+        [
+          {
+            "node": "Prepare Resume Text",
             "type": "main",
             "index": 0
           }

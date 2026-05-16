@@ -5,7 +5,7 @@ import { Header } from "@/components/header";
 import { FilterBar } from "@/components/filter-bar";
 import { TopMatch } from "@/components/top-match";
 import { CandidateTable } from "@/components/candidate-table";
-import { applyFilters, rankCandidates, uniqueDepartments, uniquePositions } from "@/lib/ranking";
+import { applyFilters, rankCandidates, uniquePositions } from "@/lib/ranking";
 import type { Candidate } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 
@@ -17,7 +17,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [position, setPosition] = useState("");
-  const [department, setDepartment] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [search, setSearch] = useState("");
@@ -41,19 +40,17 @@ export default function DashboardPage() {
   }, [user]);
 
   const positions = useMemo(() => uniquePositions(candidates), [candidates]);
-  const departments = useMemo(() => uniqueDepartments(candidates), [candidates]);
 
   const filtered = useMemo(
-    () => applyFilters(candidates, { position, department, dateFrom, dateTo, search }),
-    [candidates, position, department, dateFrom, dateTo, search],
+    () => applyFilters(candidates, { position, dateFrom, dateTo, search }),
+    [candidates, position, dateFrom, dateTo, search],
   );
   const ranked = useMemo(() => rankCandidates(filtered), [filtered]);
-  const filtersActive = !!(position || department || dateFrom || dateTo || search);
+  const filtersActive = !!(position || dateFrom || dateTo || search);
   const top = filtersActive ? ranked.slice(0, TOP_MATCH_COUNT) : [];
 
   function clearFilters() {
     setPosition("");
-    setDepartment("");
     setDateFrom("");
     setDateTo("");
     setSearch("");
@@ -83,15 +80,12 @@ export default function DashboardPage() {
 
         <FilterBar
           positions={positions}
-          departments={departments}
           position={position}
-          department={department}
           dateFrom={dateFrom}
           dateTo={dateTo}
           search={search}
           onChange={(p) => {
             if (p.position !== undefined) setPosition(p.position);
-            if (p.department !== undefined) setDepartment(p.department);
             if (p.dateFrom !== undefined) setDateFrom(p.dateFrom);
             if (p.dateTo !== undefined) setDateTo(p.dateTo);
             if (p.search !== undefined) setSearch(p.search);
